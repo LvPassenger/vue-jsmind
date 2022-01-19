@@ -268,12 +268,12 @@
 
 
     <div class="jsmind_layout">
-      <div
-        id="jsmind_container"
-        ref="container"
-        @click="nodeClick"
-        @contextmenu.prevent.stop="nodeClick"
-      ></div>
+    <div
+      id="jsmind_container"
+      ref="container"
+      @click="nodeClick"
+      @contextmenu.prevent.stop="nodeClick"
+    ></div>
 
       <el-dialog
         :title="createType === 'bro' ? '插入平级' : '插入子级'"
@@ -310,30 +310,24 @@
       </el-dialog>
     </div>
 
-    <!-- 右键菜单 -->
-    <el-menu
-      class="context-menu"
-      v-show="showMenu"
-      :style="{
-        left: menuStyle.left,
-        top: menuStyle.top,
-        bottom: menuStyle.bottom,
-        right: menuStyle.right
-      }"
-      ref="context"
-    >
-      <slot v-if="editable">
-        <el-menu-item @click="showCard">编辑卡片</el-menu-item>
-        <el-menu-item @click="insertNode">插入卡片</el-menu-item>
-        <el-menu-item @click="addBrother">插入平级</el-menu-item>
-        <el-menu-item @click="addChild">插入子级</el-menu-item>
-        <el-menu-item @click="delCard">删除卡片</el-menu-item>
-      </slot>
-      <slot v-else>
-        <el-menu-item @click="showCard">查看卡片</el-menu-item>
-        <el-menu-item @click="showRelate">查看关联</el-menu-item>
-      </slot>
-    </el-menu>
+<!-- 右键菜单 -->
+<el-menu
+  class="context-menu"
+  v-show="showMenu"
+  :style="{
+    left: menuStyle.left,
+    top: menuStyle.top,
+    bottom: menuStyle.bottom,
+    right: menuStyle.right
+  }"
+  ref="context"
+>
+  <slot>
+    <el-menu-item @click="addBrother">插入平级</el-menu-item>
+    <el-menu-item @click="addChild">插入子级</el-menu-item>
+    <el-menu-item @click="delCard">删除卡片</el-menu-item>
+  </slot>
+</el-menu>
   </div>
 </template>
 
@@ -394,11 +388,11 @@ export default {
           topic: 'jsMind',
           children: [
             {
-              id: 'easy',
-              topic: 'Easy',
-              direction: 'right',
-              expanded: false,
-              type: '4',
+              id: 'easy', // [必选] ID, 所有节点的ID不应有重复，否则ID重复的结节将被忽略
+              topic: 'Easy', // [必选] 节点上显示的内容
+              direction: 'right', // [可选] 节点的方向，此数据仅在第一层节点上有效，目前仅支持 left 和 right 两种，默认为 right
+              expanded: true, // [可选] 该节点是否是展开状态，默认为 true
+              type: '4', // [可选]自定义节点类型
               children: [
                 { id: 'easy1', topic: 'Easy to show', type: '1' },
                 { id: 'easy2', topic: 'Easy to edit', type: '2' },
@@ -456,20 +450,6 @@ export default {
           hspace: 100, // 节点之间的水平间距
           vspace: 20, // 节点之间的垂直间距
           pspace: 20 // 节点与连接线之间的水平间距（用于容纳节点收缩/展开控制器）
-        },
-        menuOpts: { // 这里加入一个专门配置menu的对象
-          showMenu: true, // showMenu 为 true 则打开右键功能 ，反之关闭
-          injectionList: [
-            { target: 'showCard', text: '查看卡片' }
-          ],
-          style: {
-            menuItem: {
-              'line-height': '28px'
-            }
-          }
-        },
-        shortcut: {
-          enable: false
         }
       },
       value: 100, // 层级大小
@@ -622,14 +602,17 @@ export default {
       this.structure.active = type
       switch (type) {
         case 'side':
+          // 两边分布
           this.loopTreeData(this.mind.data.children, (item, i) => { item.direction = i % 2 ? 'left' : 'right' })
           break
 
         case 'left':
+          // 向左分布
           this.loopTreeData(this.mind.data.children, (item) => { item.direction = 'left' })
           break
 
         case 'right':
+          // 向右分布
           this.loopTreeData(this.mind.data.children, (item) => { item.direction = 'right' })
           break
 
@@ -650,23 +633,24 @@ export default {
 
       // 禁用双击编辑
       // this.jm.disable_event_handle('dblclick')
+
+      // 重写编辑完成事件
       this.jm.view.edit_node_end = () => {
         const node = this.jm.view.get_editing_node()
         const viewData = node._data.view
         const element = viewData.element
         element.style.zIndex = 'auto'
-        const card = node.data.card
-        card.Name = this.editor.value
-        const treeNum = node.data.num
-        if (!card.Name) {
+        if (node.topic === this.editor.value) {
+          this.jm.update_node(node.id, node.topic)
+          return
+        }
+        node.topic = this.editor.value
+        if (!node.topic) {
           this.$message.info('请输入卡片标题')
-          this.jm.update_node(node.id, node.topic)
-          return
         }
-        if (card.Name === node.topic) {
-          this.jm.update_node(node.id, node.topic)
-          return
-        }
+        this.jm.update_node(node.id, node.topic)
+        
+        // TODO
         // const req = {
         //   cardId: card.Id,
         //   title: card.Name,
@@ -956,27 +940,23 @@ export default {
     mouseDrag () {
       // 里层
       const el = document.querySelector('.jsmind-inner')
-      // 外层
-      // const outWrapperEl = document.querySelector('.model-detail')
       // 选中节点
       let selected
 
       el.onmousedown = (ev) => {
         // 选中节点
         selected = this.jm.get_selected_node()
+        // 标识 是否拖拽节点 避免冲突
         this.dragNodeFlag = !!selected
 
         const disX = ev.clientX
         const disY = ev.clientY
         const originalScrollLeft = el.scrollLeft
         const originalScrollTop = el.scrollTop
-        // const outWrapperScrollLeft = outWrapperEl.scrollLeft
-        // const outWrapperScrollTop = outWrapperEl.scrollTop
         const originalScrollBehavior = el.style['scroll-behavior']
         const originalPointerEvents = el.style['pointer-events']
         // auto: 默认值，表示滚动框立即滚动到指定位置。
         el.style['scroll-behavior'] = 'auto'
-        // el.style.cursor = 'grabbing'
         // 鼠标移动事件是监听的整个document，这样可以使鼠标能够在元素外部移动的时候也能实现拖动
         document.onmousemove = (ev) => {
           if (this.dragNodeFlag) return
@@ -987,14 +967,6 @@ export default {
           const distanceY = ev.clientY - disY
 
           el.scrollTo(originalScrollLeft - distanceX, originalScrollTop - distanceY)
-
-          // 非全屏下滑动到最顶或最底部 控制外层滚动条
-          // if (!this.fullScreen) {
-          //   if ((el.scrollTop === 0 && el.scrollHeight > el.clientHeight) || el.scrollTop + el.clientHeight === el.scrollHeight) {
-          //     // 触底
-          //     outWrapperEl.scrollTo(outWrapperScrollLeft - distanceX, outWrapperScrollTop - distanceY)
-          //   }
-          // }
 
           // 在鼠标拖动的时候将点击事件屏蔽掉
           el.style['pointer-events'] = 'none'
@@ -1024,6 +996,7 @@ export default {
   },
   mounted () {
     this.jm = jsMind.show(this.options, this.mind)
+    console.log(this.jm, 'jm');
 
     // 自定义拖拽完成事件
     jsMind.draggable.prototype.handleDrag = (srcNode, targetNode, targetDirect) => {
@@ -1034,16 +1007,6 @@ export default {
     this.init()
     this.mouseWheel()
     this.mouseDrag()
-
-    // 关闭右键菜单
-    document.addEventListener('mouseup', (e) => {
-      this.$nextTick(() => {
-        const contextMenu = document.querySelector('.context-menu')
-        if (contextMenu && !contextMenu.contains(e.target)) {
-          this.showMenu = false
-        }
-      })
-    })
   },
   beforeDestroy () {
     document.removeEventListener('domMouseScroll', this.scrollFunc, false)
@@ -1412,10 +1375,8 @@ jmexpander {
     jmnode {
       max-width: unset;
       color: #fff;
-      background-color: #ddd;
 
       &.selected {
-        // background: none !important;
         color: #fff !important;
         border: 1px solid #777;
         transition: 1s;
