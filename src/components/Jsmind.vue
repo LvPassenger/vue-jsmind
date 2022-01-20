@@ -1,8 +1,6 @@
 <template>
   <div
     class="jsmind"
-    :style="{ height: '100vh' }"
-    :class="fullScreen && 'full'"
   >
     <!-- 右上角菜单 -->
     <div class="toolbar">
@@ -12,8 +10,8 @@
             size="16"
             class="percent"
             style="font-size: 14px; color: rgb(29, 29, 31)"
-            @click="value = 100"
-            >{{ value }}%
+            @click="zoom.value = 100"
+            >{{ zoom.value }}%
           </span>
           <div class="scale-slide">
             <ul>
@@ -34,10 +32,10 @@
 
               <li class="slider">
                 <el-slider
-                  v-model="value"
+                  v-model="zoom.value"
                   :show-tooltip="false"
-                  :min="min"
-                  :max="max"
+                  :min="zoom.min"
+                  :max="zoom.max"
                 ></el-slider>
               </li>
 
@@ -266,14 +264,13 @@
       <span class="export" @click="screen_shot">导出图片</span>
     </div>
 
-
     <div class="jsmind_layout">
-    <div
-      id="jsmind_container"
-      ref="container"
-      @click="nodeClick"
-      @contextmenu.prevent.stop="nodeClick"
-    ></div>
+      <div
+        id="jsmind_container"
+        ref="container"
+        @click="nodeClick"
+        @contextmenu.prevent.stop="nodeClick"
+      ></div>
 
       <el-dialog
         :title="createType === 'bro' ? '插入平级' : '插入子级'"
@@ -310,41 +307,32 @@
       </el-dialog>
     </div>
 
-<!-- 右键菜单 -->
-<el-menu
-  class="context-menu"
-  v-show="showMenu"
-  :style="{
-    left: menuStyle.left,
-    top: menuStyle.top,
-    bottom: menuStyle.bottom,
-    right: menuStyle.right
-  }"
-  ref="context"
->
-  <slot>
-    <el-menu-item @click="addBrother">插入平级</el-menu-item>
-    <el-menu-item @click="addChild">插入子级</el-menu-item>
-    <el-menu-item @click="delCard">删除卡片</el-menu-item>
-  </slot>
-</el-menu>
+    <!-- 右键菜单 -->
+    <el-menu
+      class="context-menu"
+      v-show="showMenu"
+      :style="{
+        left: menuStyle.left,
+        top: menuStyle.top,
+        bottom: menuStyle.bottom,
+        right: menuStyle.right
+      }"
+      ref="context"
+    >
+      <slot>
+        <el-menu-item @click="addBrother">插入平级</el-menu-item>
+        <el-menu-item @click="addChild">插入子级</el-menu-item>
+        <el-menu-item @click="delCard">删除卡片</el-menu-item>
+      </slot>
+    </el-menu>
   </div>
 </template>
 
 <script>
-// import 'jsmind/style/jsmind.css'
-// import jsMind from 'jsmind/js/jsmind.js'
-// import { DragTree, DragSiblingsTree, AddSiblingsTree, AddSubTree, SaveTitle } from '@/api/card'
-// import { Base64 } from 'js-base64'
-// window.jsMind = jsMind
-
-// require('jsmind/js/jsmind.draggable.js')
-// require('jsmind/js/jsmind.screenshot.js')
 
 export default {
-  props: ['rootName', 'showCardPopup'],
   watch: {
-    value (val) {
+    'zoom.value' (val) {
       const zoom = val / 100
       this.jm.view.setZoom(zoom)
     },
@@ -450,11 +438,16 @@ export default {
           hspace: 100, // 节点之间的水平间距
           vspace: 20, // 节点之间的垂直间距
           pspace: 20 // 节点与连接线之间的水平间距（用于容纳节点收缩/展开控制器）
+        },
+        shortcut: { // 禁用快捷键
+          enable: false
         }
       },
-      value: 100, // 层级大小
-      min: 10, // 最小层级
-      max: 400, // 最大层级
+      zoom: {
+        value: 100, // 层级大小
+        min: 10, // 最小层级
+        max: 400 // 最大层级
+      },
       bgMap: {
         0: {
           original: 'rgb(0, 21, 41)',
@@ -484,16 +477,7 @@ export default {
         rectOrginalColor: '#C3C6CB',
         rectActiveColor: '#BACEFD'
       },
-      nodeOption: {
-        content: '',
-        bgColor: '',
-        fontColor: '',
-        fontSize: '',
-        fontWeight: '',
-        fontStyle: ''
-      },
       dialogVisible: false,
-      fullScreen: false,
       selectNodeInfo: {
         id: null,
         Name: ''
@@ -507,7 +491,6 @@ export default {
         left: '',
         right: ''
       },
-      editable: true,
       filterTypes: [
         {
           type: 'kd',
@@ -557,12 +540,12 @@ export default {
     // 缩小
     zoomOut () {
       this.jm.view.zoomOut()
-      this.value = parseInt(this.jm.view.actualZoom * 100)
+      this.zoom.value = parseInt(this.jm.view.actualZoom * 100)
     },
     // 放大
     zoomIn () {
       this.jm.view.zoomIn()
-      this.value = parseInt(this.jm.view.actualZoom * 100)
+      this.zoom.value = parseInt(this.jm.view.actualZoom * 100)
     },
 
     // 循环树结构
@@ -631,9 +614,6 @@ export default {
       this.jm.expand_all()
       this.setColor()
 
-      // 禁用双击编辑
-      // this.jm.disable_event_handle('dblclick')
-
       // 重写编辑完成事件
       this.jm.view.edit_node_end = () => {
         const node = this.jm.view.get_editing_node()
@@ -649,22 +629,8 @@ export default {
           this.$message.info('请输入卡片标题')
         }
         this.jm.update_node(node.id, node.topic)
-        
-        // TODO
-        // const req = {
-        //   cardId: card.Id,
-        //   title: card.Name,
-        //   modelId: this.$route.query.id,
-        //   treeNum
-        // }
-        // 修改节点
-        // SaveTitle(Base64.encode(JSON.stringify(req))).then(res => {
-        //   this.$emit('update')
-        //   res.data && res.data.Name && this.jm.update_node(node.id, res.data.Name)
-        // }).catch(err => {
-        //   console.log(err)
-        //   this.jm.update_node(node.id, node.topic)
-        // })
+
+        // TODO 调接口
       }
 
       // 右键菜单
@@ -674,7 +640,7 @@ export default {
           e.preventDefault()
           const el = document.querySelector('.context-menu .el-menu-item')
           const width = parseFloat(window.getComputedStyle(el).width)
-          const height = parseFloat(window.getComputedStyle(el).height) * (this.editable ? 5 : 2) + 12
+          const height = parseFloat(window.getComputedStyle(el).height) * 3 + 12
           const windowHeight = window.innerHeight
           const windowWidth = window.innerWidth
 
@@ -697,19 +663,6 @@ export default {
           this.showMenu = false
         }
       })
-
-      // 重写设置层级方法
-      // this.jm.view.setZoom = (zoom) => {
-      //   if ((zoom < this.jm.view.minZoom) || (zoom > this.jm.view.maxZoom)) {
-      //     return false;
-      //   }
-      //   this.jm.view.actualZoom = zoom;
-      //   for (var i=0; i < this.jm.view.e_panel.children.length; i++) {
-      //     this.jm.view.e_panel.children[i].style.zoom = zoom;
-      //   };
-      //   // this.jm.show(true);
-      //   return true;
-      // }
     },
     // 获取选中标签的 ID
     get_selected_nodeid () {
@@ -727,44 +680,15 @@ export default {
         this.$message.info('请输入卡片标题')
         return
       }
-      // const reqData = {
-      //   modelId: this.$route.query.id,
-      //   treeNum: this.selectNodeInfo.id,
-      //   title: this.selectNodeInfo.Name
-      // }
-
-      // console.log('reqData', reqData)
-      // const selectedNode = this.jm.get_selected_node()
-      // console.log('selectedNode', selectedNode)
 
       if (this.createType === 'bro') {
         // 平级
-        // AddSiblingsTree(Base64.encode(JSON.stringify(reqData))).then(res => {
-        //   // if (res.data) {
-        //   //   const { label, num } = res.data
-        //   //   const newNode = this.jm.insert_node_after(selectedNode, num, label)
-        //   //   if (newNode) {
-        //   //     this.jm.select_node(num)
-        //   //     this.jm.begin_edit(num)
-        //   //   }
-        //   // }
-        //   this.$emit('update', true)
-        //   this.$message.success(res.msg)
-        // }).catch(err => {
-        //   console.log(err, 'err')
-        // })
-        // this.jm.insert_node_after(selectedNode, '1111', this.selectNodeInfo.Name)
-        this.dialogVisible = false
+        // TODO 调接口
       } else {
         // 子级
-        // AddSubTree(Base64.encode(JSON.stringify(reqData))).then(res => {
-        //   this.$emit('update', true)
-        //   this.$message.success(res.msg)
-        // }).catch(err => {
-        //   console.log(err, 'err')
-        // })
-        // this.dialogVisible = false
+        // TODO 调接口
       }
+      this.dialogVisible = false
     },
 
     // 拖拽
@@ -773,29 +697,13 @@ export default {
       const prevNode = this.jm.find_node_before(dropNode)
       // 获取移动后的node
       const dragForm = {
-        modelId: '11',
+        modelId: '',
         treeNum: !prevNode ? draggingNode : prevNode.id,
         thisTreeNum: dropNode
       }
       console.log('dragForm', dragForm)
 
-      if (!prevNode) {
-        // DragTree(Base64.encode(JSON.stringify(dragForm))).then(res => {
-        //   // console.log(res)
-        //   this.$emit('update')
-        // }).catch(err => {
-        //   console.log(err)
-        //   this.$message.erorr('操作失败')
-        // })
-      } else {
-        // DragSiblingsTree(Base64.encode(JSON.stringify(dragForm))).then(res => {
-        //   // console.log(res)
-        //   this.$emit('update')
-        // }).catch(err => {
-        //   console.log(err)
-        //   this.$message.erorr('操作失败')
-        // })
-      }
+      // TODO 调接口
     },
     // 单击重置选中背景颜色
     nodeClick () {
@@ -803,38 +711,6 @@ export default {
       if (!selectedId) return
       const nodeObj = this.jm.get_node(selectedId)
       this.jm.set_node_color(selectedId, nodeObj.data['background-color'], '#fff')
-    },
-
-    // 查看卡片
-    showCard () {
-      if (!this.showCardPopup) return
-      const selectedNode = this.jm.get_selected_node()
-      if (selectedNode.data && selectedNode.data.card) {
-        if (this.editable) {
-          const { Id, ModelId } = selectedNode.data.card
-          this.$router.push({
-            path: '/outline-edit',
-            query: { id: Id, modelId: ModelId, treeNum: selectedNode.id }
-          })
-        } else {
-          this.$emit('show', selectedNode.data.card.Id)
-        }
-      } else {
-        this.$message.error('请选择卡片')
-      }
-
-      this.showMenu = false
-    },
-
-    // 查看关联
-    showRelate () {
-      const selectedNode = this.jm.get_selected_node()
-      if (selectedNode.data && selectedNode.data.card) {
-        this.$emit('relate', selectedNode.data)
-      } else {
-        this.$message.error('请选择卡片')
-      }
-      this.showMenu = false
     },
 
     // 插入卡片
@@ -850,7 +726,7 @@ export default {
     // 插入平级
     addBrother () {
       const selectedNode = this.jm.get_selected_node()
-      if (selectedNode.data && selectedNode.data.card) {
+      if (selectedNode.data) {
         this.dialogVisible = true
         this.selectNodeInfo = {
           id: selectedNode.data.num,
@@ -867,7 +743,7 @@ export default {
     // 插入子级
     addChild () {
       const selectedNode = this.jm.get_selected_node()
-      if (selectedNode.data && selectedNode.data.card) {
+      if (selectedNode.data) {
         this.dialogVisible = true
         this.selectNodeInfo = {
           id: selectedNode.data.num,
@@ -885,7 +761,8 @@ export default {
     delCard () {
       const selectedNode = this.jm.get_selected_node()
       if (selectedNode.data) {
-        this.$emit('delete', { node: selectedNode, data: selectedNode.data })
+        // TODO
+        console.log('删除卡片')
       } else {
         this.$message.error('请选择卡片')
       }
@@ -931,10 +808,6 @@ export default {
       setTimeout(() => {
         this.setColor()
       }, 1000)
-    },
-    showfullScreen () {
-      this.fullScreen = !this.fullScreen
-      this.$emit('mindFull', this.fullScreen)
     },
     // 鼠标拖拽
     mouseDrag () {
@@ -983,20 +856,8 @@ export default {
       }
     }
   },
-  created () {
-    // const data = {
-    //   id: 'root',
-    //   topic: this.rootName,
-    //   children: this.nodeList
-    // }
-
-    // this.mind.meta.name = this.rootName + '-思维导图'
-
-    // this.mind.data = data
-  },
   mounted () {
     this.jm = jsMind.show(this.options, this.mind)
-    console.log(this.jm, 'jm');
 
     // 自定义拖拽完成事件
     jsMind.draggable.prototype.handleDrag = (srcNode, targetNode, targetDirect) => {
@@ -1014,419 +875,6 @@ export default {
 }
 </script>
 
-<style>
-/* @import '../../assets/css/jsmind.css'; */
-</style>
-
 <style lang="less">
-jmexpander {
-  line-height: 8px;
-}
-.jsmind {
-  position: relative;
-  padding: 20px;
-
-  &.full {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: #fff;
-  }
-
-  .toolbar {
-    float: right;
-    z-index: 2;
-    position: absolute;
-    right: 20px;
-    top: 80px;
-    z-index: 99;
-    border: 1px solid #dee0e3;
-    background-color: #fff;
-    border-radius: 5px;
-    -webkit-box-shadow: 0 0 8px 4px rgb(31 35 41 / 6%);
-    box-shadow: 0 0 8px 4px rgb(31 35 41 / 6%);
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    text-align: center;
-
-    .toolbar-list {
-      padding: 6px 0;
-
-      .item {
-        position: relative;
-        width: 48px;
-        height: 36px;
-        cursor: pointer;
-        font-size: 14px;
-        line-height: 36px;
-        text-align: center;
-        margin-bottom: 12px;
-
-        svg {
-          vertical-align: middle;
-        }
-
-        &.expand {
-          span {
-            display: inline-block;
-            width: 100%;
-            height: 100%;
-            // background: url('../../assets/img/main/model/expand.png') center
-            //   center / 17px auto no-repeat;
-          }
-        }
-
-        .percent {
-          color: rgb(29, 29, 31);
-          line-height: 1.45;
-        }
-
-        &:hover {
-          .scale-slide {
-            opacity: 1;
-            visibility: visible;
-          }
-        }
-
-        &.layout {
-          &:hover {
-            .structure {
-              opacity: 1;
-              visibility: visible;
-            }
-          }
-        }
-
-        .scale-slide {
-          position: absolute;
-          top: -7px;
-          right: 58px;
-          overflow: hidden;
-          width: 244px;
-          height: 44px;
-          opacity: 1;
-          -webkit-transition: all 0.1s linear;
-          transition: all 0.1s linear;
-          opacity: 0;
-          visibility: hidden;
-
-          &:hover {
-            opacity: 1;
-            visibility: visible;
-          }
-
-          ul {
-            position: absolute;
-            display: -webkit-box;
-            display: -ms-flexbox;
-            display: flex;
-            width: 244px;
-            height: 44px;
-            padding: 4px 8px;
-            border: 1px solid #dee0e3;
-            background-color: #fff;
-            border-radius: 5px;
-            -webkit-box-shadow: 0 0 8px 4px rgb(31 35 41 / 6%);
-            box-shadow: 0 0 8px 4px rgb(31 35 41 / 6%);
-            list-style: none;
-
-            .normal-item {
-              display: flex;
-              width: 36px;
-              height: 36px;
-              -webkit-box-align: center;
-              -ms-flex-align: center;
-              align-items: center;
-              -webkit-box-pack: center;
-              -ms-flex-pack: center;
-              justify-content: center;
-              cursor: pointer;
-            }
-
-            .slider {
-              width: 100%;
-
-              /deep/.el-slider__runway {
-                height: 2px;
-                background-color: #bbbfc4;
-
-                .el-slider__bar {
-                  background: none;
-                }
-
-                .el-slider__button {
-                  border: 0.5px solid #dee0e3;
-                }
-              }
-            }
-
-            .style__zoom-scroll-bar___3n1YHZLZ {
-              display: flex;
-
-              .style__zoom-bar___rp3v2Kdv {
-                position: relative;
-                display: -webkit-box;
-                display: -ms-flexbox;
-                display: flex;
-                width: 120px;
-                height: 36px;
-                -webkit-box-align: center;
-                -ms-flex-align: center;
-                align-items: center;
-                cursor: pointer;
-
-                .style__process-bar___2nCsCTk0 {
-                  position: relative;
-                  left: 50%;
-                  width: 104px;
-                  height: 2px;
-                  -ms-flex-item-align: center;
-                  align-self: center;
-                  margin-left: -52px;
-                  background-color: #bbbfc4;
-                  border-radius: 2px;
-                }
-
-                .style__process-btn___azlkuc9i {
-                  position: absolute;
-                  width: 16px;
-                  height: 16px;
-                  border: 0.5px solid #dee0e3;
-                  background-color: #fff;
-                  border-radius: 8px;
-                  -webkit-box-shadow: 0 2px 3px 0 rgb(0 0 0 / 15%);
-                  box-shadow: 0 2px 3px 0 rgb(0 0 0 / 15%);
-                  cursor: pointer;
-                }
-              }
-            }
-          }
-        }
-
-        .structure {
-          position: absolute;
-          top: 0;
-          right: 58px;
-          width: 244px;
-          min-height: 120px;
-          max-height: calc(100vh - 200px);
-          cursor: default;
-          opacity: 0;
-          overflow-y: overlay;
-          -webkit-transition: all 0.1s linear;
-          transition: all 0.1s linear;
-          visibility: hidden;
-          z-index: 1000;
-
-          &:hover {
-            opacity: 1;
-            visibility: visible;
-          }
-
-          .tab-content {
-            padding: 24px 24px 10px;
-            border: 1px solid #dee0e3;
-            background-color: #fff;
-            border-radius: 5px;
-            -webkit-box-shadow: 0 0 8px 4px rgb(31 35 41 / 6%);
-            box-shadow: 0 0 8px 4px rgb(31 35 41 / 6%);
-
-            .tab-label {
-              margin-bottom: 12px;
-              color: #1f2329;
-              font-size: 16px;
-              font-weight: 500;
-              line-height: 1.5;
-              text-align: left;
-            }
-
-            .struct-list {
-              display: -webkit-box;
-              display: -ms-flexbox;
-              display: flex;
-              -webkit-box-orient: horizontal;
-              -webkit-box-direction: normal;
-              -ms-flex-direction: row;
-              flex-direction: row;
-              -webkit-box-pack: justify;
-              -ms-flex-pack: justify;
-              justify-content: space-between;
-              margin: 0 0 20px;
-              list-style: none;
-
-              li {
-                width: 32px;
-                height: 32px;
-                cursor: pointer;
-              }
-            }
-          }
-        }
-      }
-
-      .reset {
-        margin-bottom: 0;
-      }
-    }
-  }
-
-  .top-bar {
-    .filter {
-      float: left;
-
-      li {
-        display: inline-block;
-        height: 40px;
-        line-height: 40px;
-        margin-right: 20px;
-        padding: 0 20px;
-        background-color: #ddd;
-        border-radius: 10px;
-        cursor: pointer;
-  
-        &.active {
-          color: #fff;
-        }
-  
-        &.kd {
-          &.active {
-            background-color: #1990ff;
-          }
-        }
-  
-        &.zsd {
-          &.active {
-            background-color: #d42a2a;
-          }
-        }
-  
-        &.zskp {
-          &.active {
-            background-color: #64c935;
-          }
-        }
-  
-        &.st {
-          &.active {
-            background-color: #4332ad;
-          }
-        }
-      }
-    }
-
-    .export {
-      float: right;
-      padding: 0 20px;
-      height: 40px;
-      line-height: 40px;
-      background: #fff;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      cursor: pointer;
-    }
-  }
-
-
-  .jsmind_layout {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    // height: calc(100% - 40px);
-    height: 100%;
-    // height: 1500px;
-    // overflow-x: hidden;
-    .jsmind_toolbar {
-      width: 100%;
-      padding: 0 10px 10px 10px;
-      height: auto;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      background-color: #f8f9fa;
-      box-shadow: 0 0 4px #b8b8b8;
-    }
-    /deep/ .el-button--medium,
-    /deep/ .el-input--medium {
-      margin-top: 10px;
-    }
-    #jsmind_container {
-      flex: 1 1 auto;
-    }
-    /deep/.el-upload-list {
-      display: none !important;
-    }
-    /* 隐藏滚动条 */
-    .jsmind-inner::-webkit-scrollbar {
-      // display: none;
-      // height: 5px;
-    }
-    .pad {
-      margin-right: 10px;
-    }
-    .pad-left {
-      margin-left: 10px;
-    }
-
-    jmnode {
-      max-width: unset;
-      color: #fff;
-
-      &.selected {
-        color: #fff !important;
-        border: 1px solid #777;
-        transition: 1s;
-      }
-    }
-
-    /deep/ jmnode.selected {
-      background-color: #b9b9b9;
-      color: #fff;
-      box-shadow: 2px 2px 8px #777;
-    }
-    /deep/ jmnode:hover {
-      box-shadow: 2px 2px 8px #777;
-    }
-  }
-
-  .context-menu {
-    width: 150px;
-    padding: 12px 0px;
-    position: fixed;
-    z-index: 100;
-    background: rgb(255, 255, 255);
-    box-shadow: rgba(0, 0, 0, 0.1) 0px 2px 12px 0px;
-    border-radius: 5px;
-    font-size: 12px;
-    display: block;
-    left: 912px;
-    top: 535px;
-
-    .el-menu-item {
-      width: 150px;
-      height: 40px;
-      line-height: 40px;
-    }
-  }
-
-  .jsmind-inner {
-    overflow: scroll;
-    // overflow: hidden auto !important;
-
-    &::-webkit-scrollbar {
-      height: 10px;
-    }
-  }
-
-  .form-con {
-    padding-top: 20px;
-  }
-  .ele-width {
-    width: 96%;
-  }
-}
+@import '../assets/css/style.less';
 </style>
