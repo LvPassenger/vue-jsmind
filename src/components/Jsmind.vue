@@ -449,10 +449,6 @@ export default {
         max: 400 // 最大层级
       },
       bgMap: {
-        0: {
-          original: 'rgb(0, 21, 41)',
-          transparent: 'rgb(0, 21, 41, 0.2)'
-        },
         1: {
           original: 'rgb(212, 42, 42)',
           transparent: 'rgb(212, 42, 42, 0.2)'
