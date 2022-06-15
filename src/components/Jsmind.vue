@@ -758,7 +758,9 @@ export default {
       const selectedNode = this.jm.get_selected_node()
       if (selectedNode.data) {
         // TODO
-        console.log('删除卡片')
+        this.jm.remove_node(selectedNode.id)
+        // 获取数据
+        console.log(this.jm.get_data('node_tree'))
       } else {
         this.$message.error('请选择卡片')
       }
